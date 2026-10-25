@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 case $1 in
     amd64)
         ARCH="64"
@@ -25,16 +26,34 @@ case $1 in
         FNAME="amd64"
         ;;
 esac
+MTG_MULTI_VER=$(curl -sfL "https://api.github.com/repos/mhsanaei/mtg-multi/releases/latest" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
+if [ -z "$MTG_MULTI_VER" ]; then
+    echo "DockerInit: could not resolve the latest mtg-multi release tag" >&2
+    exit 1
+fi
 mkdir -p build/bin
 cd build/bin
-wget "https://github.com/XTLS/Xray-core/releases/download/v1.8.15/Xray-linux-${ARCH}.zip"
+curl -sfLRO "https://github.com/XTLS/Xray-core/releases/download/v26.10.21/Xray-linux-${ARCH}.zip"
 unzip "Xray-linux-${ARCH}.zip"
 rm -f "Xray-linux-${ARCH}.zip" geoip.dat geosite.dat
 mv xray "xray-linux-${FNAME}"
-wget https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat
-wget https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat
-wget -O geoip_IR.dat https://github.com/chocolate4u/Iran-v2ray-rules/releases/latest/download/geoip.dat
-wget -O geosite_IR.dat https://github.com/chocolate4u/Iran-v2ray-rules/releases/latest/download/geosite.dat
-wget -O geoip_VN.dat https://github.com/vuong2023/vn-v2ray-rules/releases/latest/download/geoip.dat
-wget -O geosite_VN.dat https://github.com/vuong2023/vn-v2ray-rules/releases/latest/download/geosite.dat
+# mtg-multi (MTProto sidecar) ships prebuilt release binaries for every target
+# we package, so download and unpack the matching one instead of compiling.
+case $FNAME in
+    i386) MTGARCH="386" ;;
+    arm32) MTGARCH="armv7" ;;
+    *) MTGARCH="$FNAME" ;;
+esac
+MTG_PKG="mtg-multi-${MTG_MULTI_VER#v}-linux-${MTGARCH}"
+curl -sfLRO "https://github.com/mhsanaei/mtg-multi/releases/download/${MTG_MULTI_VER}/${MTG_PKG}.tar.gz"
+tar -xzf "${MTG_PKG}.tar.gz"
+mv "${MTG_PKG}/mtg-multi" "mtg-linux-${FNAME}"
+rm -rf "${MTG_PKG}" "${MTG_PKG}.tar.gz"
+chmod +x "mtg-linux-${FNAME}"
+curl -sfLRO https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat
+curl -sfLRO https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat
+curl -sfLRo geoip_IR.dat https://github.com/chocolate4u/Iran-v2ray-rules/releases/latest/download/geoip.dat
+curl -sfLRo geosite_IR.dat https://github.com/chocolate4u/Iran-v2ray-rules/releases/latest/download/geosite.dat
+curl -sfLRo geoip_RU.dat https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geoip.dat
+curl -sfLRo geosite_RU.dat https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geosite.dat
 cd ../../
